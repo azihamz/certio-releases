@@ -1,0 +1,12 @@
+mediapipe>=0.10.14
+opencv-python-headless>=4.9
+numpy>=1.26
+scikit-learn>=1.4
+lightgbm>=4.3
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+httpx>=0.27
+pydantic>=2.6
+scikit-image>=0.22
+pytest>=8
