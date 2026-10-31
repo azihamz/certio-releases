@@ -20,7 +20,7 @@ SVC=facescore
 echo "==> system packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q git curl python3 python3-venv python3-pip libegl1 libgles2 libgl1 libgomp1
+apt-get install -y -q git curl python3 python3-venv python3-pip libegl1 libgles2 libgl1 libgomp1 iproute2
 
 echo "==> code ($BRANCH)"
 if [ -d "$APP_DIR/src/.git" ]; then
