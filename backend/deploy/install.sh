@@ -64,6 +64,8 @@ User=facescore
 WorkingDirectory=$BE
 EnvironmentFile=$APP_DIR/data/.env
 Environment=FACESCORE_DB=$APP_DIR/data/facescore.db
+Environment=HOME=$APP_DIR/data
+Environment=MPLCONFIGDIR=$APP_DIR/data/.mpl
 ExecStart=$APP_DIR/venv/bin/uvicorn facescore.api:app --host 127.0.0.1 --port $PORT --workers 1
 Restart=on-failure
 
@@ -73,7 +75,17 @@ UNIT
 systemctl daemon-reload
 systemctl enable -q "$SVC"
 systemctl restart "$SVC"
-for i in $(seq 1 30); do curl -fs "http://127.0.0.1:$PORT/health" >/dev/null && break; sleep 1; done
+UP=
+for i in $(seq 1 90); do
+  curl -fs "http://127.0.0.1:$PORT/health" >/dev/null && { UP=1; break; }
+  systemctl is-failed -q "$SVC" && break
+  sleep 1
+done
+if [ -z "$UP" ]; then
+  echo "service did not start. Last log lines:"
+  journalctl -u "$SVC" -n 40 --no-pager || true
+  exit 1
+fi
 curl -fsS "http://127.0.0.1:$PORT/health"; echo
 
 if [ -n "$DOMAIN" ]; then
