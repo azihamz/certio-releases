@@ -43,6 +43,9 @@ echo "==> python env"
 echo "==> landmark model"
 [ -f "$BE/models/face_landmarker.task" ] || (cd "$BE" && ./scripts/get_models.sh)
 [ -f "$APP_DIR/data/.env" ] || cp "$BE/.env.example" "$APP_DIR/data/.env"
+# .env wins over the unit's Environment=, so pin the DB to the writable data dir here
+sed -i "s#^FACESCORE_DB=.*#FACESCORE_DB=$APP_DIR/data/facescore.db#" "$APP_DIR/data/.env"
+grep -q '^FACESCORE_DB=' "$APP_DIR/data/.env" || echo "FACESCORE_DB=$APP_DIR/data/facescore.db" >> "$APP_DIR/data/.env"
 chmod 600 "$APP_DIR/data/.env"
 
 echo "==> tests"
@@ -74,6 +77,7 @@ WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
 systemctl enable -q "$SVC"
+systemctl reset-failed "$SVC" 2>/dev/null || true
 systemctl restart "$SVC"
 UP=
 for i in $(seq 1 90); do
