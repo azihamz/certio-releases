@@ -3,6 +3,7 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/azihamz/certio-releases/claude/vibrant-wozniak-chdvzv/backend/deploy/install.sh | bash
 #   ... | DOMAIN=api.example.com bash     # also add an nginx site for that domain
+#   ... | DOMAIN=1.2.3.4 PUBLIC_PORT=8080 bash   # serve on the bare IP, on its own port
 #
 # The API listens on 127.0.0.1 only. Nothing is public unless DOMAIN is set.
 # Existing nginx sites are never edited. A new site is kept only if `nginx -t` passes.
@@ -13,6 +14,7 @@ BRANCH=${BRANCH:-claude/vibrant-wozniak-chdvzv}
 APP_DIR=${APP_DIR:-/opt/facescore}
 PORT=${PORT:-8100}
 DOMAIN=${DOMAIN:-}
+PUBLIC_PORT=${PUBLIC_PORT:-80}
 SVC=facescore
 
 [ "$(id -u)" = 0 ] || { echo "run as root"; exit 1; }
@@ -76,13 +78,18 @@ curl -fsS "http://127.0.0.1:$PORT/health"; echo
 
 if [ -n "$DOMAIN" ]; then
   command -v nginx >/dev/null || { echo "nginx not installed; skipping public site"; exit 0; }
-  echo "==> nginx site for $DOMAIN"
+  echo "==> nginx site for $DOMAIN:$PUBLIC_PORT"
+  if [ "$PUBLIC_PORT" != 80 ] && ss -ltn "sport = :$PUBLIC_PORT" | grep -q LISTEN && [ ! -e /etc/nginx/sites-enabled/facescore ]; then
+    echo "port $PUBLIC_PORT is already in use. Rerun with PUBLIC_PORT=<free port>"; exit 1
+  fi
   SITE=/etc/nginx/sites-available/facescore
-  sed -e "s/__DOMAIN__/$DOMAIN/g" -e "s/__PORT__/$PORT/g" "$BE/deploy/nginx-facescore.conf" > "$SITE"
+  sed -e "s/__DOMAIN__/$DOMAIN/g" -e "s/__PORT__/$PORT/g" -e "s/__LISTEN__/$PUBLIC_PORT/g" "$BE/deploy/nginx-facescore.conf" > "$SITE"
   ln -sf "$SITE" /etc/nginx/sites-enabled/facescore
   if nginx -t; then
     systemctl reload nginx
-    echo "live at http://$DOMAIN  (for HTTPS: certbot --nginx -d $DOMAIN)"
+    if [ "$PUBLIC_PORT" != 80 ] && command -v ufw >/dev/null && ufw status | grep -q active; then ufw allow "$PUBLIC_PORT/tcp"; fi
+    URL="http://$DOMAIN"; [ "$PUBLIC_PORT" = 80 ] || URL="$URL:$PUBLIC_PORT"
+    curl -fsS "$URL/health" && echo && echo "live at $URL"
   else
     rm -f /etc/nginx/sites-enabled/facescore
     echo "nginx test failed; site removed, existing sites untouched"; exit 1
